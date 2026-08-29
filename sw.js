@@ -1,5 +1,5 @@
 const CACHE_NAME = 'run-and-gun-v1';
-const FILES = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png', './hero.png', './hero_left.png', './enemy.png', './enemy_left.png', './background.png'];
+const FILES = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png', './hero_green.png', './hero_green_left.png', './hero_blue.png', './hero_blue_left.png', './hero_red.png', './hero_red_left.png', './hero_black.png', './hero_black_left.png', './enemy.png', './enemy_left.png', './background.png'];
 
 self.addEventListener('install', e=>{
   e.waitUntil(caches.open(CACHE_NAME).then(cache=>cache.addAll(FILES)));
