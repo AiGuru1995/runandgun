@@ -376,19 +376,23 @@ function render(){
   level.enemies.forEach(en=>{
     if(!en.alive) return;
     ctx.fillStyle = 'rgba(0,0,0,0.25)';
-    ctx.beginPath(); ctx.ellipse(en.x+12, en.y+30, 12, 4, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(en.x+12, en.y+30, 14, 5, 0, 0, Math.PI*2); ctx.fill();
     const img = en.dir>0 ? IMG.enemy : IMG.enemy_left;
-    if(img.complete && img.naturalWidth) ctx.drawImage(img, en.x-8, en.y-4, 40, 36);
+    if(img.complete && img.naturalWidth){
+      const ES = 68;
+      ctx.drawImage(img, en.x+12-ES/2, en.y+28-ES+8, ES, ES);
+    }
   });
 
   // player
   ctx.save();
   if(player.invuln>0 && Math.floor(Date.now()/100)%2===0) ctx.globalAlpha = 0.4;
   ctx.fillStyle = 'rgba(0,0,0,0.25)';
-  ctx.beginPath(); ctx.ellipse(player.x+player.w/2, player.y+player.h+4, 14, 4, 0, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(player.x+player.w/2, player.y+player.h+4, 18, 5, 0, 0, Math.PI*2); ctx.fill();
   const heroImg = player.facing>0 ? IMG.hero : IMG.hero_left;
   if(heroImg.complete && heroImg.naturalWidth){
-    ctx.drawImage(heroImg, player.x-14, player.y-6, 54, 54);
+    const SPRITE_SIZE = 100;
+    ctx.drawImage(heroImg, player.x + player.w/2 - SPRITE_SIZE/2, player.y + player.h - SPRITE_SIZE + 12, SPRITE_SIZE, SPRITE_SIZE);
   }
   ctx.restore();
 
