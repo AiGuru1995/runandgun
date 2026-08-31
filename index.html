@@ -62,11 +62,11 @@
   #dpad, #actions{ position:absolute; bottom:0; pointer-events:auto; padding-bottom:calc(24px + env(safe-area-inset-bottom)); display:flex; gap:14px; }
   #dpad{ left:20px; }
   #actions{ right:20px; align-items:flex-end; }
-  .ctrlBtn{ width:64px; height:64px; border-radius:50%; background:rgba(28,36,48,.55); border:2px solid rgba(255,255,255,.25); display:flex; align-items:center; justify-content:center; font-size:24px; color:#fff; font-weight:bold; }
-  .ctrlBtn.active{ background:rgba(255,205,60,.55); }
-  #jumpBtn{ width:74px; height:74px; }
-  #shootBtn{ width:74px; height:74px; background:rgba(230,57,70,.45); }
-  #shootBtn.active{ background:rgba(230,57,70,.85); }
+  .ctrlBtn{ width:76px; height:76px; border-radius:50%; background:rgba(28,36,48,.6); border:3px solid rgba(255,255,255,.35); display:flex; align-items:center; justify-content:center; font-size:28px; color:#fff; font-weight:bold; transition:transform .08s, background .08s; }
+  .ctrlBtn.active{ background:rgba(255,205,60,.65); transform:scale(0.9); }
+  #jumpBtn{ width:86px; height:86px; }
+  #shootBtn{ width:86px; height:86px; background:rgba(230,57,70,.5); }
+  #shootBtn.active{ background:rgba(230,57,70,.9); transform:scale(0.9); }
 </style>
 </head>
 <body>
@@ -335,8 +335,14 @@ let cameraX = 0;
 let currentLevelNum = 1;
 let selectedColor = 'green';
 let score = 0, coinCount = 0, lives = 3;
-let highScore = parseInt(localStorage.getItem('rungun_highscore')||'0');
-let unlockedLevel = parseInt(localStorage.getItem('rungun_unlocked')||'1');
+function safeGet(key, fallback){
+  try{ return localStorage.getItem(key) || fallback; }catch(e){ return fallback; }
+}
+function safeSet(key, val){
+  try{ localStorage.setItem(key, val); }catch(e){}
+}
+let highScore = parseInt(safeGet('rungun_highscore','0'));
+let unlockedLevel = parseInt(safeGet('rungun_unlocked','1'));
 let state = 'loading'; // loading, menu, levelSelect, pick, playing, paused, result
 let gameRunning = false;
 
@@ -416,9 +422,9 @@ function completeLevel(){
   score += 200;
   if(currentLevelNum === unlockedLevel && currentLevelNum <= TOTAL_FIXED_LEVELS){
     unlockedLevel = currentLevelNum+1;
-    localStorage.setItem('rungun_unlocked', unlockedLevel);
+    safeSet('rungun_unlocked', unlockedLevel);
   }
-  if(score > highScore){ highScore = score; localStorage.setItem('rungun_highscore', highScore); document.getElementById('hsVal').textContent = highScore; }
+  if(score > highScore){ highScore = score; safeSet('rungun_highscore', highScore); document.getElementById('hsVal').textContent = highScore; }
   document.getElementById('resultEyebrow').textContent = 'LEVEL CLEAR';
   document.getElementById('resultTitle').textContent = 'STAGE COMPLETE!';
   document.getElementById('resultSub').textContent = 'Score: ' + score + ' · Coins: ' + coinCount;
@@ -437,7 +443,7 @@ function loseLife(){
 function gameOverFinal(){
   gameRunning = false;
   sfx.gameOver();
-  if(score > highScore){ highScore = score; localStorage.setItem('rungun_highscore', highScore); document.getElementById('hsVal').textContent = highScore; }
+  if(score > highScore){ highScore = score; safeSet('rungun_highscore', highScore); document.getElementById('hsVal').textContent = highScore; }
   document.getElementById('resultEyebrow').textContent = 'GAME OVER';
   document.getElementById('resultTitle').textContent = 'YOU DIED';
   document.getElementById('resultSub').textContent = 'Score: ' + score + ' · Reached Level ' + currentLevelNum;
@@ -455,7 +461,7 @@ window.addEventListener('mouseup', ()=> keys['shoot']=false);
 
 function bindHold(id, key){
   const el = document.getElementById(id);
-  const on = e=>{ e.preventDefault(); keys[key]=true; el.classList.add('active'); };
+  const on = e=>{ e.preventDefault(); keys[key]=true; el.classList.add('active'); if(navigator.vibrate) navigator.vibrate(12); };
   const off = e=>{ e.preventDefault(); keys[key]=false; el.classList.remove('active'); };
   el.addEventListener('touchstart', on); el.addEventListener('touchend', off); el.addEventListener('touchcancel', off);
   el.addEventListener('mousedown', on); el.addEventListener('mouseup', off); el.addEventListener('mouseleave', off);
@@ -657,9 +663,12 @@ function render(){
   if(IMG.background.complete && IMG.background.naturalWidth){
     const bw=IMG.background.width, bh=IMG.background.height;
     const scale = H/bh*0.62, drawW=bw*scale, drawH=bh*scale;
-    const parX = cameraX*0.35;
-    let startX = -(parX % drawW) - drawW;
-    for(let x=startX; x<W+drawW; x+=drawW) ctx.drawImage(IMG.background, x, H-drawH-H*0.08, drawW, drawH);
+    if(drawW > 5){
+      const parX = cameraX*0.35;
+      let startX = -(parX % drawW) - drawW;
+      let safety = 0;
+      for(let x=startX; x<W+drawW && safety<20; x+=drawW, safety++) ctx.drawImage(IMG.background, x, H-drawH-H*0.08, drawW, drawH);
+    }
   }
 
   ctx.save();
@@ -744,12 +753,16 @@ function loop(now){
   if(!lastTime) lastTime = now;
   const dt = Math.min(now-lastTime, 50);
   lastTime = now;
-  if(gameRunning && state==='playing'){
-    updatePlayer(dt, now);
-    updateEnemies(dt, now);
-    updateBullets();
+  try{
+    if(gameRunning && state==='playing'){
+      updatePlayer(dt, now);
+      updateEnemies(dt, now);
+      updateBullets();
+    }
+    render();
+  }catch(err){
+    console.error('Game loop error (recovered):', err);
   }
-  render();
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
