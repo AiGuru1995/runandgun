@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "app.vercel.runandgun.twa",
+        "sha256_cert_fingerprints": ["84:8B:0B:6A:57:78:C9:38:FC:36:1F:05:35:7C:95:28:6B:7A:7E:8E:60:0B:75:9B:43:BF:6B:54:09:7E:6E:0A"]
+      }
+    }]
