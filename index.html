@@ -332,6 +332,8 @@ function buildLevel(levelNum){
 // ============ GLOBAL STATE ============
 let level, bullets=[], enemyBullets=[], particles=[];
 let cameraX = 0;
+const GAME_HEIGHT = 720;
+let gameScale = 1;
 let currentLevelNum = 1;
 let selectedColor = 'green';
 let score = 0, coinCount = 0, lives = 3;
@@ -587,7 +589,9 @@ function updatePlayer(dt, now){
   if(player.hp <= 0 && gameRunning) loseLife();
   if(player.x > level.flagX - 40 && gameRunning) completeLevel();
 
-  cameraX = Math.max(0, Math.min(level.width - W + 400, player.x - W*0.35));
+  gameScale = H / GAME_HEIGHT;
+  const effW = W / gameScale;
+  cameraX = Math.max(0, Math.min(level.width - effW + 400, player.x - effW*0.35));
 }
 
 function updateEnemies(dt, now){
@@ -672,6 +676,7 @@ function render(){
   }
 
   ctx.save();
+  ctx.scale(gameScale, gameScale);
   ctx.translate(-cameraX, 0);
 
   level.platforms.forEach(p=>{

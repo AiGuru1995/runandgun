@@ -1,4 +1,4 @@
-const CACHE_NAME = 'run-and-gun-v5';
+const CACHE_NAME = 'run-and-gun-v6';
 const FILES = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png',
   './hero_green.png', './hero_green_left.png', './hero_blue.png', './hero_blue_left.png',
   './hero_red.png', './hero_red_left.png', './hero_black.png', './hero_black_left.png',
