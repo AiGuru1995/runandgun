@@ -35,6 +35,20 @@
 
   /* Level select grid */
   .levelGrid{ display:grid; grid-template-columns:repeat(5,1fr); gap:12px; max-width:420px; margin-bottom:22px; }
+  #shopGrid{ display:flex; flex-wrap:wrap; gap:12px; justify-content:center; max-width:420px; margin-bottom:20px; max-height:52vh; overflow-y:auto; padding:4px; }
+  .charCard{ width:150px; background:rgba(28,36,48,.55); border-radius:14px; padding:10px; display:flex; flex-direction:column; align-items:center; border:2px solid rgba(255,255,255,.15); }
+  .charCard.equipped{ border-color:#FFCD3C; }
+  .charCard .portrait{ width:70px; height:76px; object-fit:contain; margin-bottom:4px; }
+  .charCard .cname{ font-size:12px; font-weight:bold; color:#fff; margin-bottom:2px; }
+  .charCard .cability{ font-size:9px; color:#DCE9F5; text-align:center; margin-bottom:6px; min-height:22px; line-height:1.3; }
+  .charCard .cswatches{ display:flex; gap:4px; margin-bottom:6px; }
+  .charCard .cswatch{ width:18px; height:18px; border-radius:50%; border:2px solid rgba(255,255,255,.4); cursor:pointer; }
+  .charCard .cswatch.active{ border-color:#FFCD3C; }
+  .cbtn{ font-family:inherit; font-size:10px; font-weight:bold; text-transform:uppercase; border:none; border-radius:14px; padding:6px 12px; cursor:pointer; }
+  .cbtn.buy{ background:var(--coin); color:#3a2a00; }
+  .cbtn.buy:disabled{ background:#5a5a5a; color:#999; cursor:not-allowed; }
+  .cbtn.equip{ background:rgba(255,255,255,.85); color:#222; }
+  .cbtn.equipped{ background:#4CAF50; color:#fff; }
   .levelBtn{
     width:64px; height:64px; border-radius:12px; border:none; font-size:20px; font-weight:bold;
     background:var(--coin); color:#3a2a00; cursor:pointer; box-shadow:0 4px 0 #b8931f; position:relative;
@@ -84,8 +98,9 @@
 <div class="screen" id="menuScreen">
   <div class="eyebrow">RUN · JUMP · SHOOT</div>
   <h1>RUN & GUN</h1>
-  <div id="highScoreBadge">HIGH SCORE: <span id="hsVal">0</span></div>
+  <div id="highScoreBadge">HIGH SCORE: <span id="hsVal">0</span> &nbsp;·&nbsp; 🪙 <span id="menuWalletVal">0</span></div>
   <button class="bigBtn" id="playBtn">Play</button>
+  <button class="smallBtn" id="shopBtn">🛒 Characters</button>
   <div id="controlsHint" style="margin-top:18px;font-size:11px;color:#DCE9F5;line-height:1.8;">Desktop: A/D move · Space jump · X shoot<br>Mobile: D-pad + Jump/Shoot buttons</div>
 </div>
 
@@ -97,20 +112,16 @@
   <button class="smallBtn" id="backToMenuBtn">← Back</button>
 </div>
 
-<!-- CHARACTER PICK (shown before starting a run) -->
-<div class="screen" id="pickScreen">
-  <div class="eyebrow">CUSTOMIZE</div>
-  <h1 style="font-size:28px;">PICK YOUR COLOR</h1>
-  <div id="colorPicker">
-    <div class="swatch active" data-color="green" data-name="Green" style="background:#485C3A;"></div>
-    <div class="swatch" data-color="blue" data-name="Blue" style="background:#30465E;"></div>
-    <div class="swatch" data-color="red" data-name="Red" style="background:#782C2C;"></div>
-    <div class="swatch" data-color="black" data-name="Black" style="background:#2C2C30;"></div>
-  </div>
-  <div id="colorLabel">SELECTED: GREEN</div>
-  <button class="bigBtn" id="confirmStartBtn">Start Level</button>
-  <button class="smallBtn" id="backToSelectBtn">← Back</button>
+<!-- CHARACTER SHOP -->
+<div class="screen" id="shopScreen">
+  <div class="eyebrow">CHARACTER SHOP</div>
+  <h1 style="font-size:26px;">CHOOSE YOUR FIGHTER</h1>
+  <div id="highScoreBadge">🪙 <span id="shopWalletVal">0</span></div>
+  <div id="shopGrid"></div>
+  <button class="smallBtn" id="shopBackBtn">← Back</button>
 </div>
+
+
 
 <!-- PAUSE -->
 <div class="screen" id="pauseScreen">
@@ -166,7 +177,11 @@ window.addEventListener('resize', resize);
 ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
 
 // ============ ASSETS ============
-const ASSET_NAMES = ['hero_green','hero_green_left','hero_blue','hero_blue_left','hero_red','hero_red_left','hero_black','hero_black_left','enemy','enemy_left','enemy_flyer','enemy_flyer_left','enemy_turret','boss','boss_left','background'];
+const ASSET_NAMES = ['hero_green','hero_green_left','hero_blue','hero_blue_left','hero_red','hero_red_left','hero_black','hero_black_left','enemy','enemy_left','enemy_flyer','enemy_flyer_left','enemy_turret','boss','boss_left','background',
+  'char_ninja_black','char_ninja_black_left','char_ninja_red','char_ninja_red_left',
+  'char_astro_white','char_astro_white_left','char_astro_orange','char_astro_orange_left',
+  'char_pirate_brown','char_pirate_brown_left','char_pirate_teal','char_pirate_teal_left',
+  'char_robot_silver','char_robot_silver_left','char_robot_gold','char_robot_gold_left'];
 const IMG = {};
 let loadedCount = 0;
 ASSET_NAMES.forEach(n=>{
@@ -335,7 +350,26 @@ let cameraX = 0;
 const GAME_HEIGHT = 720;
 let gameScale = 1;
 let currentLevelNum = 1;
-let selectedColor = 'green';
+const CHARACTERS = {
+  soldier: { name:'SOLDIER', cost:0, colors:['green','blue','red','black'], ability:'Balanced fighter', sprite:'hero' },
+  ninja:   { name:'NINJA', cost:150, colors:['black','red'], ability:'+25% speed, higher jump', sprite:'char_ninja' },
+  astro:   { name:'ASTRONAUT', cost:300, colors:['white','orange'], ability:'Can double jump', sprite:'char_astro' },
+  pirate:  { name:'PIRATE', cost:500, colors:['brown','teal'], ability:'Starts with Shotgun', sprite:'char_pirate' },
+  robot:   { name:'ROBOT', cost:750, colors:['silver','gold'], ability:'Takes half damage', sprite:'char_robot' }
+};
+
+let walletCoins = parseInt(safeGet('rungun_wallet','0'));
+let unlockedChars = JSON.parse(safeGet('rungun_unlockedchars','{"soldier":true}'));
+let equippedChar = safeGet('rungun_equippedchar','soldier');
+let equippedColor = safeGet('rungun_equippedcolor','green');
+
+function heroImgKey(character, color, facing){
+  const c = CHARACTERS[character];
+  const base = c.sprite === 'hero' ? 'hero_'+color : c.sprite+'_'+color;
+  return facing>0 ? base : base+'_left';
+}
+
+let selectedColor = equippedColor;
 let score = 0, coinCount = 0, lives = 3;
 function safeGet(key, fallback){
   try{ return localStorage.getItem(key) || fallback; }catch(e){ return fallback; }
@@ -351,7 +385,8 @@ let gameRunning = false;
 document.getElementById('hsVal').textContent = highScore;
 
 function makePlayer(){
-  return { x:60, y:400, w:26, h:38, vx:0, vy:0, onGround:false, facing:1, hp:100, maxHp:100, lastShot:0, invuln:0, weapon:'pistol' };
+  return { x:60, y:400, w:26, h:38, vx:0, vy:0, onGround:false, facing:1, hp:100, maxHp:100, lastShot:0, invuln:0,
+    weapon: equippedChar==='pirate' ? 'shotgun' : 'pistol', jumpsUsed:0 };
 }
 let player = makePlayer();
 
@@ -360,9 +395,9 @@ function showScreen(name){
   state = name;
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('show'));
   document.getElementById('hud').classList.remove('show');
-  if(name === 'menu'){ document.getElementById('menuScreen').classList.add('show'); stopMusic(); }
+  if(name === 'menu'){ document.getElementById('menuScreen').classList.add('show'); document.getElementById('menuWalletVal').textContent = walletCoins; stopMusic(); }
   if(name === 'levelSelect'){ buildLevelGrid(); document.getElementById('levelSelectScreen').classList.add('show'); }
-  if(name === 'pick'){ document.getElementById('pickScreen').classList.add('show'); }
+  if(name === 'shop'){ buildShopGrid(); document.getElementById('shopScreen').classList.add('show'); }
   if(name === 'playing'){ document.getElementById('hud').classList.add('show'); }
   if(name === 'paused'){ document.getElementById('hud').classList.add('show'); document.getElementById('pauseScreen').classList.add('show'); }
   if(name === 'result'){ document.getElementById('resultScreen').classList.add('show'); }
@@ -376,7 +411,7 @@ function buildLevelGrid(){
     const locked = i > unlockedLevel;
     btn.className = 'levelBtn' + (locked?' locked':'') + (BOSS_LEVELS.includes(i)?' boss':'');
     btn.textContent = locked ? '🔒' : i;
-    if(!locked){ btn.addEventListener('click', ()=>{ currentLevelNum = i; showScreen('pick'); }); }
+    if(!locked){ btn.addEventListener('click', ()=>{ currentLevelNum = i; startRun(); }); }
     grid.appendChild(btn);
   }
   const endlessBtn = document.createElement('button');
@@ -385,11 +420,88 @@ function buildLevelGrid(){
   endlessBtn.style.width = '100%';
   endlessBtn.textContent = unlockedLevel > TOTAL_FIXED_LEVELS ? '∞ ENDLESS MODE' : '🔒 Beat Level 10 to unlock Endless';
   if(unlockedLevel > TOTAL_FIXED_LEVELS){
-    endlessBtn.addEventListener('click', ()=>{ currentLevelNum = TOTAL_FIXED_LEVELS+1; showScreen('pick'); });
+    endlessBtn.addEventListener('click', ()=>{ currentLevelNum = TOTAL_FIXED_LEVELS+1; startRun(); });
   } else {
     endlessBtn.classList.add('locked');
   }
   grid.appendChild(endlessBtn);
+}
+
+function buildShopGrid(){
+  document.getElementById('shopWalletVal').textContent = walletCoins;
+  const grid = document.getElementById('shopGrid');
+  grid.innerHTML = '';
+  Object.keys(CHARACTERS).forEach(key=>{
+    const c = CHARACTERS[key];
+    const unlocked = !!unlockedChars[key];
+    const card = document.createElement('div');
+    card.className = 'charCard' + (equippedChar===key ? ' equipped' : '');
+
+    const previewColor = (unlockedChars[key+'_color']) || c.colors[0];
+    const img = document.createElement('img');
+    img.className = 'portrait';
+    img.src = heroImgKey(key, previewColor, 1) + '.png';
+    card.appendChild(img);
+
+    const nameEl = document.createElement('div'); nameEl.className='cname'; nameEl.textContent = c.name;
+    card.appendChild(nameEl);
+    const abilEl = document.createElement('div'); abilEl.className='cability'; abilEl.textContent = c.ability;
+    card.appendChild(abilEl);
+
+    if(unlocked){
+      const swatches = document.createElement('div'); swatches.className='cswatches';
+      c.colors.forEach(col=>{
+        const sw = document.createElement('div');
+        sw.className = 'cswatch' + ((equippedChar===key && selectedColor===col) ? ' active' : '');
+        sw.style.background = swatchColorHex(key,col);
+        sw.addEventListener('click', ()=>{
+          equippedChar = key; selectedColor = col;
+          safeSet('rungun_equippedchar', key); safeSet('rungun_equippedcolor', col);
+          buildShopGrid();
+        });
+        swatches.appendChild(sw);
+      });
+      card.appendChild(swatches);
+
+      const btn = document.createElement('button');
+      if(equippedChar === key){ btn.className='cbtn equipped'; btn.textContent='EQUIPPED'; btn.disabled=true; }
+      else{
+        btn.className='cbtn equip'; btn.textContent='EQUIP';
+        btn.addEventListener('click', ()=>{
+          equippedChar = key; selectedColor = c.colors[0];
+          safeSet('rungun_equippedchar', key); safeSet('rungun_equippedcolor', selectedColor);
+          buildShopGrid();
+        });
+      }
+      card.appendChild(btn);
+    } else {
+      const btn = document.createElement('button');
+      btn.className = 'cbtn buy';
+      btn.textContent = '🪙 ' + c.cost;
+      btn.disabled = walletCoins < c.cost;
+      btn.addEventListener('click', ()=>{
+        if(walletCoins >= c.cost){
+          walletCoins -= c.cost;
+          safeSet('rungun_wallet', walletCoins);
+          unlockedChars[key] = true;
+          safeSet('rungun_unlockedchars', JSON.stringify(unlockedChars));
+          sfx.weapon();
+          buildShopGrid();
+        }
+      });
+      card.appendChild(btn);
+    }
+    grid.appendChild(card);
+  });
+}
+
+function swatchColorHex(charKey, colorName){
+  const map = {
+    green:'#485C3A', blue:'#30465E', red:'#782C2C', black:'#2C2C30',
+    white:'#E8EAEC', orange:'#EB8C32', brown:'#5A3C28', teal:'#1E6E6E',
+    silver:'#AFB2B6', gold:'#D2AF50'
+  };
+  return map[colorName] || '#888';
 }
 
 // ============ RESET / START ============
@@ -481,15 +593,8 @@ document.getElementById('pauseMenuBtn').addEventListener('click', ()=> showScree
 document.getElementById('resultMenuBtn').addEventListener('click', ()=> showScreen('menu'));
 document.getElementById('playBtn').addEventListener('click', ()=>{ initAudio(); showScreen('levelSelect'); });
 document.getElementById('backToMenuBtn').addEventListener('click', ()=> showScreen('menu'));
-document.getElementById('backToSelectBtn').addEventListener('click', ()=> showScreen('levelSelect'));
-document.getElementById('confirmStartBtn').addEventListener('click', ()=> startRun());
-document.querySelectorAll('.swatch').forEach(sw=>{
-  sw.addEventListener('click', ()=>{
-    document.querySelectorAll('.swatch').forEach(s=>s.classList.remove('active'));
-    sw.classList.add('active'); selectedColor = sw.dataset.color;
-    document.getElementById('colorLabel').textContent = 'SELECTED: ' + sw.dataset.name.toUpperCase();
-  });
-});
+document.getElementById('shopBtn').addEventListener('click', ()=>{ initAudio(); showScreen('shop'); });
+document.getElementById('shopBackBtn').addEventListener('click', ()=> showScreen('menu'));
 
 // ============ SHOOTING ============
 function playerShoot(now){
@@ -515,14 +620,18 @@ function enemyShoot(en, now, delay){
 
 // ============ UPDATE ============
 function updatePlayer(dt, now){
-  const speed = 5.2;
+  const speed = equippedChar==='ninja' ? 6.5 : 5.2;
   if(keys['a']||keys['arrowleft']){ player.vx=-speed; player.facing=-1; }
   else if(keys['d']||keys['arrowright']){ player.vx=speed; player.facing=1; }
   else player.vx = 0;
 
-  if((keys['jump']||keys[' ']||keys['w']||keys['arrowup']) && player.onGround){
-    player.vy = -18; player.onGround=false; sfx.jump();
+  const jumpKeyDown = keys['jump']||keys[' ']||keys['w']||keys['arrowup'];
+  if(jumpKeyDown && !player.jumpKeyLatch){
+    const jumpVel = equippedChar==='ninja' ? -19.5 : -18;
+    if(player.onGround){ player.vy=jumpVel; player.onGround=false; player.jumpsUsed=1; sfx.jump(); }
+    else if(equippedChar==='astro' && player.jumpsUsed<2){ player.vy=jumpVel; player.jumpsUsed=2; sfx.jump(); }
   }
+  player.jumpKeyLatch = jumpKeyDown;
   if(keys['shoot']||keys['x']) playerShoot(now);
 
   player.vy += GRAVITY;
@@ -541,7 +650,7 @@ function updatePlayer(dt, now){
   player.onGround = false;
   level.platforms.forEach(p=>{
     if(rectsOverlap(player,p)){
-      if(player.vy>0){ player.y = p.y - player.h; player.vy=0; player.onGround=true; }
+      if(player.vy>0){ player.y = p.y - player.h; player.vy=0; player.onGround=true; player.jumpsUsed=0; }
       else if(player.vy<0){ player.y = p.y + p.h; player.vy=0; }
     }
   });
@@ -551,7 +660,7 @@ function updatePlayer(dt, now){
 
   level.coins.forEach(c=>{
     if(!c.taken && dist2(player,{x:c.x,y:c.y}) < 32){
-      c.taken=true; coinCount++; score += 10; sfx.coin(); updateHud();
+      c.taken=true; coinCount++; score += 10; walletCoins++; safeSet('rungun_wallet', walletCoins); sfx.coin(); updateHud();
     }
   });
   level.weaponsLoot.forEach(wl=>{
@@ -571,7 +680,8 @@ function updatePlayer(dt, now){
         else { en.alive=false; score += 25; sfx.enemyDown(); }
         player.vy = -12;
       } else if(player.invuln<=0){
-        player.hp -= (en.type==='boss'?22:14); player.invuln=800; sfx.hurt();
+        const dmg = (en.type==='boss'?22:14) * (equippedChar==='robot'?0.5:1);
+        player.hp -= dmg; player.invuln=800; sfx.hurt();
       }
     }
   });
@@ -580,7 +690,7 @@ function updatePlayer(dt, now){
     b.x += b.vx; b.y += b.vy; b.life--;
     if(b.life<=0) return false;
     if(player.invuln<=0 && Math.abs(b.x-(player.x+player.w/2))<16 && Math.abs(b.y-(player.y+player.h/2))<20){
-      player.hp -= 10; player.invuln=800; sfx.hurt();
+      player.hp -= 10 * (equippedChar==='robot'?0.5:1); player.invuln=800; sfx.hurt();
       return false;
     }
     return true;
@@ -732,7 +842,7 @@ function render(){
   if(player.invuln>0 && Math.floor(Date.now()/100)%2===0) ctx.globalAlpha=0.4;
   ctx.fillStyle='rgba(0,0,0,0.25)';
   ctx.beginPath(); ctx.ellipse(player.x+player.w/2, player.y+player.h+4, 18, 5, 0, 0, Math.PI*2); ctx.fill();
-  const heroImg = player.facing>0 ? IMG['hero_'+selectedColor] : IMG['hero_'+selectedColor+'_left'];
+  const heroImg = IMG[heroImgKey(equippedChar, selectedColor, player.facing)];
   if(heroImg.complete && heroImg.naturalWidth){
     const dispH=92, dispW=dispH*(heroImg.naturalWidth/heroImg.naturalHeight);
     ctx.drawImage(heroImg, player.x+player.w/2-dispW/2, player.y+player.h-dispH+6, dispW, dispH);

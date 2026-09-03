@@ -1,9 +1,13 @@
-const CACHE_NAME = 'run-and-gun-v6';
+const CACHE_NAME = 'run-and-gun-v7';
 const FILES = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png',
   './hero_green.png', './hero_green_left.png', './hero_blue.png', './hero_blue_left.png',
   './hero_red.png', './hero_red_left.png', './hero_black.png', './hero_black_left.png',
   './enemy.png', './enemy_left.png', './enemy_flyer.png', './enemy_flyer_left.png',
-  './enemy_turret.png', './boss.png', './boss_left.png', './background.png'];
+  './enemy_turret.png', './boss.png', './boss_left.png', './background.png',
+  './char_ninja_black.png', './char_ninja_black_left.png', './char_ninja_red.png', './char_ninja_red_left.png',
+  './char_astro_white.png', './char_astro_white_left.png', './char_astro_orange.png', './char_astro_orange_left.png',
+  './char_pirate_brown.png', './char_pirate_brown_left.png', './char_pirate_teal.png', './char_pirate_teal_left.png',
+  './char_robot_silver.png', './char_robot_silver_left.png', './char_robot_gold.png', './char_robot_gold_left.png'];
 
 self.addEventListener('install', e=>{
   e.waitUntil(caches.open(CACHE_NAME).then(cache=>cache.addAll(FILES)));
