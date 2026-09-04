@@ -9,6 +9,7 @@
 <title>Run & Gun — 2D Platformer</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
     color-scheme: light only;
@@ -36,6 +37,12 @@
   /* Level select grid */
   .levelGrid{ display:grid; grid-template-columns:repeat(5,1fr); gap:12px; max-width:420px; margin-bottom:22px; }
   #shopGrid{ display:flex; flex-wrap:wrap; gap:12px; justify-content:center; max-width:420px; margin-bottom:20px; max-height:52vh; overflow-y:auto; padding:4px; }
+  .lbRow{ display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:8px; font-size:13px; color:#fff; }
+  .lbRow.me{ background:rgba(255,205,60,.25); }
+  .lbRow .lbRank{ width:28px; font-weight:bold; color:#FFCD3C; text-align:center; }
+  .lbRow .lbName{ flex:1; text-align:left; font-weight:bold; }
+  .lbRow .lbCountry{ font-size:11px; color:#cfe; }
+  .lbRow .lbScore{ font-weight:bold; }
   .charCard{ width:150px; background:rgba(28,36,48,.55); border-radius:14px; padding:10px; display:flex; flex-direction:column; align-items:center; border:2px solid rgba(255,255,255,.15); }
   .charCard.equipped{ border-color:#FFCD3C; }
   .charCard .portrait{ width:70px; height:76px; object-fit:contain; margin-bottom:4px; }
@@ -100,8 +107,30 @@
   <h1>RUN & GUN</h1>
   <div id="highScoreBadge">HIGH SCORE: <span id="hsVal">0</span> &nbsp;·&nbsp; 🪙 <span id="menuWalletVal">0</span></div>
   <button class="bigBtn" id="playBtn">Play</button>
-  <button class="smallBtn" id="shopBtn">🛒 Characters</button>
+  <div>
+    <button class="smallBtn" id="shopBtn">🛒 Characters</button>
+    <button class="smallBtn" id="leaderboardBtn">🏆 Leaderboard</button>
+  </div>
   <div id="controlsHint" style="margin-top:18px;font-size:11px;color:#DCE9F5;line-height:1.8;">Desktop: A/D move · Space jump · X shoot<br>Mobile: D-pad + Jump/Shoot buttons</div>
+</div>
+
+<!-- NAME / COUNTRY ENTRY -->
+<div class="screen" id="nameScreen">
+  <div class="eyebrow">FIRST TIME SETUP</div>
+  <h1 style="font-size:28px;">PICK YOUR NAME</h1>
+  <p>This name and country will appear on the world leaderboard.</p>
+  <input id="usernameInput" type="text" maxlength="16" placeholder="Your username" style="padding:12px 16px; border-radius:20px; border:none; font-size:14px; text-align:center; margin-bottom:12px; width:240px; font-family:inherit;">
+  <select id="countrySelect" style="padding:12px 16px; border-radius:20px; border:none; font-size:14px; margin-bottom:16px; width:240px; font-family:inherit;"></select>
+  <div id="nameError" style="color:#FFB0B0; font-size:12px; margin-bottom:10px; min-height:16px;"></div>
+  <button class="bigBtn" id="saveNameBtn">Continue</button>
+</div>
+
+<!-- LEADERBOARD -->
+<div class="screen" id="leaderboardScreen">
+  <div class="eyebrow">WORLD RANKINGS</div>
+  <h1 style="font-size:28px;">TOP 100</h1>
+  <div id="lbList" style="width:100%; max-width:380px; max-height:50vh; overflow-y:auto; background:rgba(0,0,0,.2); border-radius:12px; padding:8px; margin-bottom:16px; text-align:left;"></div>
+  <button class="smallBtn" id="lbBackBtn">← Back</button>
 </div>
 
 <!-- LEVEL SELECT -->
@@ -363,6 +392,57 @@ let unlockedChars = JSON.parse(safeGet('rungun_unlockedchars','{"soldier":true}'
 let equippedChar = safeGet('rungun_equippedchar','soldier');
 let equippedColor = safeGet('rungun_equippedcolor','green');
 
+// ============ LEADERBOARD ============
+const supabaseClient = window.supabase.createClient(
+  'https://vjhricjukvsknapxdhlb.supabase.co',
+  'sb_publishable_e0dkd-W5FYL8Y_fX5QdI0A_W2FaAdwH'
+);
+let playerUsername = safeGet('rungun_username', '');
+let playerCountry = safeGet('rungun_country', '');
+
+const COUNTRIES = ['Pakistan','India','Bangladesh','United States','United Kingdom','Canada','Australia','Saudi Arabia','United Arab Emirates','Qatar','Turkey','Germany','France','Brazil','Indonesia','Nigeria','Egypt','China','Japan','South Korea','Philippines','Malaysia','South Africa','Other'];
+function populateCountries(){
+  const sel = document.getElementById('countrySelect');
+  sel.innerHTML = COUNTRIES.map(c=>`<option value="${c}">${c}</option>`).join('');
+  if(playerCountry) sel.value = playerCountry;
+}
+
+async function submitScore(finalScore){
+  if(!playerUsername) return;
+  try{
+    const { data: existing } = await supabaseClient.from('leaderboard').select('best_score').eq('username', playerUsername).maybeSingle();
+    if(!existing){
+      await supabaseClient.from('leaderboard').insert({ username: playerUsername, country: playerCountry, best_score: finalScore });
+    } else if(finalScore > existing.best_score){
+      await supabaseClient.from('leaderboard').update({ best_score: finalScore, updated_at: new Date().toISOString() }).eq('username', playerUsername);
+    }
+  }catch(e){ console.error('Leaderboard submit failed', e); }
+}
+
+async function loadLeaderboard(){
+  const list = document.getElementById('lbList');
+  list.innerHTML = '<div style="padding:20px; text-align:center; color:#cfe;">Loading...</div>';
+  try{
+    const { data, error } = await supabaseClient.from('leaderboard').select('username,country,best_score').order('best_score', { ascending:false }).limit(100);
+    if(error) throw error;
+    if(!data || !data.length){ list.innerHTML = '<div style="padding:20px; text-align:center; color:#cfe;">No scores yet — be the first!</div>'; return; }
+    list.innerHTML = data.map((row,i)=>`
+      <div class="lbRow ${row.username===playerUsername?'me':''}">
+        <div class="lbRank">${i+1}</div>
+        <div>
+          <div class="lbName">${escapeHtml(row.username)}</div>
+          <div class="lbCountry">${escapeHtml(row.country||'')}</div>
+        </div>
+        <div class="lbScore">${row.best_score}</div>
+      </div>
+    `).join('');
+  }catch(e){
+    list.innerHTML = '<div style="padding:20px; text-align:center; color:#FFB0B0;">Could not load leaderboard. Check your connection.</div>';
+    console.error(e);
+  }
+}
+function escapeHtml(s){ return (s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
 function heroImgKey(character, color, facing){
   const c = CHARACTERS[character];
   const base = c.sprite === 'hero' ? 'hero_'+color : c.sprite+'_'+color;
@@ -398,6 +478,8 @@ function showScreen(name){
   if(name === 'menu'){ document.getElementById('menuScreen').classList.add('show'); document.getElementById('menuWalletVal').textContent = walletCoins; stopMusic(); }
   if(name === 'levelSelect'){ buildLevelGrid(); document.getElementById('levelSelectScreen').classList.add('show'); }
   if(name === 'shop'){ buildShopGrid(); document.getElementById('shopScreen').classList.add('show'); }
+  if(name === 'name'){ document.getElementById('nameScreen').classList.add('show'); }
+  if(name === 'leaderboard'){ loadLeaderboard(); document.getElementById('leaderboardScreen').classList.add('show'); }
   if(name === 'playing'){ document.getElementById('hud').classList.add('show'); }
   if(name === 'paused'){ document.getElementById('hud').classList.add('show'); document.getElementById('pauseScreen').classList.add('show'); }
   if(name === 'result'){ document.getElementById('resultScreen').classList.add('show'); }
@@ -539,6 +621,7 @@ function completeLevel(){
     safeSet('rungun_unlocked', unlockedLevel);
   }
   if(score > highScore){ highScore = score; safeSet('rungun_highscore', highScore); document.getElementById('hsVal').textContent = highScore; }
+  submitScore(score);
   document.getElementById('resultEyebrow').textContent = 'LEVEL CLEAR';
   document.getElementById('resultTitle').textContent = 'STAGE COMPLETE!';
   document.getElementById('resultSub').textContent = 'Score: ' + score + ' · Coins: ' + coinCount;
@@ -558,6 +641,7 @@ function gameOverFinal(){
   gameRunning = false;
   sfx.gameOver();
   if(score > highScore){ highScore = score; safeSet('rungun_highscore', highScore); document.getElementById('hsVal').textContent = highScore; }
+  submitScore(score);
   document.getElementById('resultEyebrow').textContent = 'GAME OVER';
   document.getElementById('resultTitle').textContent = 'YOU DIED';
   document.getElementById('resultSub').textContent = 'Score: ' + score + ' · Reached Level ' + currentLevelNum;
@@ -591,7 +675,41 @@ document.getElementById('resumeBtn').addEventListener('click', togglePause);
 document.getElementById('pauseRestartBtn').addEventListener('click', ()=> startRun());
 document.getElementById('pauseMenuBtn').addEventListener('click', ()=> showScreen('menu'));
 document.getElementById('resultMenuBtn').addEventListener('click', ()=> showScreen('menu'));
-document.getElementById('playBtn').addEventListener('click', ()=>{ initAudio(); showScreen('levelSelect'); });
+document.getElementById('playBtn').addEventListener('click', ()=>{
+  initAudio();
+  if(!playerUsername){ populateCountries(); showScreen('name'); }
+  else showScreen('levelSelect');
+});
+document.getElementById('leaderboardBtn').addEventListener('click', ()=>{ showScreen('leaderboard'); });
+document.getElementById('lbBackBtn').addEventListener('click', ()=> showScreen('menu'));
+document.getElementById('saveNameBtn').addEventListener('click', async ()=>{
+  const nameInput = document.getElementById('usernameInput');
+  const name = nameInput.value.trim();
+  const country = document.getElementById('countrySelect').value;
+  const errEl = document.getElementById('nameError');
+  errEl.textContent = '';
+  if(name.length < 3){ errEl.textContent = 'Username must be at least 3 characters.'; return; }
+  if(!/^[a-zA-Z0-9_]+$/.test(name)){ errEl.textContent = 'Only letters, numbers, underscore allowed.'; return; }
+
+  const btn = document.getElementById('saveNameBtn');
+  btn.disabled = true; btn.textContent = 'Checking...';
+  try{
+    const { data: existing } = await supabaseClient.from('leaderboard').select('username').eq('username', name).maybeSingle();
+    if(existing){
+      errEl.textContent = 'That username is taken — try another.';
+      btn.disabled = false; btn.textContent = 'Continue';
+      return;
+    }
+    await supabaseClient.from('leaderboard').insert({ username: name, country: country, best_score: 0 });
+    playerUsername = name; playerCountry = country;
+    safeSet('rungun_username', name); safeSet('rungun_country', country);
+    showScreen('levelSelect');
+  }catch(e){
+    errEl.textContent = 'Connection error — try again.';
+    console.error(e);
+  }
+  btn.disabled = false; btn.textContent = 'Continue';
+});
 document.getElementById('backToMenuBtn').addEventListener('click', ()=> showScreen('menu'));
 document.getElementById('shopBtn').addEventListener('click', ()=>{ initAudio(); showScreen('shop'); });
 document.getElementById('shopBackBtn').addEventListener('click', ()=> showScreen('menu'));
